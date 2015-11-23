@@ -1,0 +1,81 @@
+---
+title: "Practical Machine Learning Assignment"
+output: html_document
+---
+In this assignment, I will explore the Weight Lifting data set and build a model to predict the way people exercise. I will separate the data into training set which i then use to build a model and then using the validation set to test for the accuracy.
+
+## Preprocessing the data
+
+Read the data set
+```{r echo=TRUE}
+library("caret")
+weight_lifting <- read.csv("pml-training.csv")
+```
+
+The data contains many variables with missing values and numeric variables which is defined as factors or integer, which we should convert into numeric variables. I also remove all the variables with NA's value so that the model can be predicted for the training set as well as the validation set.
+
+```{r echo=TRUE}
+for (i in 1:ncol(weight_lifting)){
+  weight_lifting[,i] = as.numeric(weight_lifting[,i])
+}
+
+# Define na_var as the list of the numbers of non-na value for each columns, and retain column
+# with no na's value
+
+na_var <- apply(!is.na(weight_lifting),2,sum)
+data <- weight_lifting[,na_var==nrow(weight_lifting)]
+
+data[,"classe"] = as.factor(data[,"classe"])
+```
+
+Loading the test set and doing the same preprocessing
+```{r echo=TRUE}
+test <- read.csv("pml-testing.csv")
+for (i in 1:ncol(test)){
+  test[,i] = as.numeric(test[,i])
+}
+test <- test[,colnames(data)[1:92]]
+na_var2 <- apply(!is.na(test),2,sum)
+test_data <- test[,na_var2==nrow(test)]
+
+```
+
+Using the same non-missing columns of test set in the training set
+
+```{r echo=TRUE}
+data <- data[,c(colnames(test_data),"classe")]
+```
+
+Now create the training and validation data (70%-30%) from the data set
+
+```{r echo=TRUE}
+partition <- createDataPartition(data$classe,p=0.7, list=FALSE)
+training_data <- data[partition,]
+validation_data <- data[-partition,]
+```
+
+Create a random forest model using 100 trees for each using the training data set
+
+```{r echo=TRUE}
+rf <- train(classe~., training_data, method="rf", ntree=100)
+rf
+```
+
+We can see that the model chosen was with 47 variables per level. The accuracy of the model was 99.98%. We can also look at the confusion matrix to see that it does a good prediction on the training set
+
+```{r echo=TRUE}
+confusionMatrix(training_data$classe, predict(rf, training_data))
+```
+
+Now, let's test the model on the validation test.
+```{r echo=TRUE}
+confusionMatrix(validation_data$classe, predict(rf, validation_data))
+```
+
+Again, the model does a really good predition, with only 1 missclassification of the class. So we could then believe that our model is not overfitted. We can then use this model to predict the classes for the test set.
+
+```{r echo=TRUE}
+pred <- predict(rf, test_data)
+```
+
+
